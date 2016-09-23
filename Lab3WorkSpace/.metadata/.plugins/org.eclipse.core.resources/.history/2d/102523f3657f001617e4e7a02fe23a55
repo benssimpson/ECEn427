@@ -1,0 +1,18 @@
+/*
+ * main.c
+ *
+ * Runs our main program
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#include "platform.h"
+#include "graphics.h"	//For graphics
+
+int main()
+{
+	init_platform();                   // Necessary for all programs.
+
+	return 0;	//Because there's a warning otherwise
+}

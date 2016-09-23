@@ -1,0 +1,46 @@
+/*
+ * tank.c
+ *
+ *  Created on: Sep 21, 2016
+ *      Author: superman
+ */
+
+#include "tank.h"
+
+static tank_graphics tank_curr;
+static tank_graphics tank_prev;
+
+#define START_POSITION 153
+#define MOVEMENT_OFFSET 5
+
+//Initialize the tank memory
+void tank_init()
+{
+	tank_curr.x = START_POSITION;
+	tank_prev.x = START_POSITION;
+}
+
+//update the current tank position
+void tank_updatePosition(bool left)
+{
+	tank_prev.x = tank_curr.x;
+	if(left)
+	{
+		tank_curr.x = tank_curr.x - MOVEMENT_OFFSET;
+	}
+	else
+	{
+		tank_curr.x = tank_curr.x + MOVEMENT_OFFSET;
+	}
+
+}
+//get the current tank position
+uint16_t tank_getPosition()
+{
+	return tank_curr.x;
+}
+//get the previous tank position
+uint16_t tank_getPreviousPosition()
+{
+	return tank_prev.x;
+}

@@ -1,0 +1,90 @@
+/*
+ * graphics.c
+ *
+ *	Implement graphics.h
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#include "graphics.h"
+#include "platform.h"
+#include "xparameters.h"	//For device parameters
+#include "xaxivdma.h"
+#include "xio.h"
+#include <stdint.h>		//For integer types
+
+#define FRAME_BUFFER_0_ADDR 0xC0000000  // Starting location in DDR where we will store the images that we display.
+#define SCREEN_WIDTH		640		//Screen width in pixels
+#define SCREEN_HEIGHT		480		//Screen height in pixels
+#define BYTES_PER_PIXEL		4		//Each pixel is 4 bytes
+
+//Static variables
+XAxiVdma_DmaSetup graphics_FrameBuffer;
+
+//Initializes graphics.  Most of this code is copied from the vdmaTest.c file provided for the project.
+void graphics_init()
+{
+	XAxiVdma videoDMAController;
+	// There are 3 steps to initializing the vdma driver and IP.
+	// Step 1: lookup the memory structure that is used to access the vdma driver.
+	XAxiVdma_Config * VideoDMAConfig = XAxiVdma_LookupConfig(XPAR_AXI_VDMA_0_DEVICE_ID);
+	// Step 2: Initialize the memory structure and the hardware.
+	if(XST_FAILURE == XAxiVdma_CfgInitialize(&videoDMAController, VideoDMAConfig,	XPAR_AXI_VDMA_0_BASEADDR)) {
+		xil_printf("VideoDMA Did not initialize.\r\n");
+	}
+	// Step 3: (optional) set the frame store number.
+	if(XST_FAILURE ==  XAxiVdma_SetFrmStore(&videoDMAController, 2, XAXIVDMA_READ)) {
+		xil_printf("Set Frame Store Failed.");
+	}
+	// Initialization is complete at this point.
+	// Setup the frame counter. We want two read frames. We don't need any write frames but the
+	// function generates an error if you set the write frame count to 0. We set it to 2
+	// but ignore it because we don't need a write channel at all.
+	XAxiVdma_FrameCounter myFrameConfig;
+	myFrameConfig.ReadFrameCount = 2;
+	myFrameConfig.ReadDelayTimerCount = 10;
+	myFrameConfig.WriteFrameCount =2;
+	myFrameConfig.WriteDelayTimerCount = 10;
+	Status = XAxiVdma_SetFrameCounter(&videoDMAController, &myFrameConfig);
+	if (Status != XST_SUCCESS) {
+	   xil_printf("Set frame counter failed %d\r\n", Status);
+	   if(Status == XST_VDMA_MISMATCH_ERROR)
+		   xil_printf("DMA Mismatch Error\r\n");
+	}
+	// Now we tell the driver about the geometry of our frame buffer and a few other things.
+	// Our image is 480 x 640.
+
+	graphics_FrameBuffer.VertSizeInput = SCREEN_HEIGHT;    // 480 vertical pixels.
+	graphics_FrameBuffer.HoriSizeInput = SCREEN_WIDTH*BYTES_PER_PIXEL;  // 640 horizontal (32-bit pixels).
+	graphics_FrameBuffer.Stride = SCREEN_WIDTH*BYTES_PER_PIXEL;         // Dont' worry about the rest of the values.
+	graphics_FrameBuffer.FrameDelay = 0;
+	graphics_FrameBuffer.EnableCircularBuf=1;
+	graphics_FrameBuffer.EnableSync = 0;
+	graphics_FrameBuffer.PointNum = 0;
+	graphics_FrameBuffer.EnableFrameCounter = 0;
+	graphics_FrameBuffer.FixedFrameStoreAddr = 0;
+	if(XST_FAILURE == XAxiVdma_DmaConfig(&videoDMAController, XAXIVDMA_READ, &graphics_FrameBuffer)) {
+		xil_printf("DMA Config Failed\r\n");
+	 }
+	// We need to give the frame buffer pointers to the memory that it will use. This memory
+	// is where you will write your video data. The vdma IP/driver then streams it to the HDMI
+	// IP.
+	 graphics_FrameBuffer.FrameStoreStartAddr[0] = FRAME_BUFFER_0_ADDR;
+	 graphics_FrameBuffer.FrameStoreStartAddr[1] = FRAME_BUFFER_0_ADDR + 4*640*480;
+
+	 if(XST_FAILURE == XAxiVdma_DmaSetBufferAddr(&videoDMAController, XAXIVDMA_READ,
+						   graphics_FrameBuffer.FrameStoreStartAddr)) {
+		 xil_printf("DMA Set Address Failed Failed\r\n");
+	 }
+	 // Print a sanity message if you get this far.
+	 xil_printf("Woohoo! I made it through initialization.\n\r");
+}
+
+//Clears the screen to black
+void graphics_clear_screen()
+{
+	uint32_t i;	//looping variables
+	for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)
+
+}

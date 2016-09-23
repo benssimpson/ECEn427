@@ -1,0 +1,28 @@
+/*
+ * tank.c
+ *
+ *  Created on: Sep 21, 2016
+ *      Author: superman
+ */
+
+#include "tank.h"
+
+static tank_graphics tank_curr;
+static tank_graphics tank_prev;
+
+//update the current tank position
+void tank_updatePosition(uint16_t x)
+{
+	tank_prev.x = tank_curr.x;
+	tank_curr.x = x;
+}
+//get the current tank position
+uint16_t tank_getPosition()
+{
+	return tank_curr.x;
+}
+//get the previous tank position
+uint16_t tank_getPreviousPosition()
+{
+	return tank_prev.x;
+}

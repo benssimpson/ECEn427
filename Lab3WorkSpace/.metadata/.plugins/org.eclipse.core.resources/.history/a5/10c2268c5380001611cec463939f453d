@@ -1,0 +1,32 @@
+/*
+ * aliens.h
+ *
+ *  Created on: Sep 21, 2016
+ *      Author: superman
+ */
+
+#ifndef ALIENS_H_
+#define ALIENS_H_
+
+
+
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef struct
+{
+	uint16_t x;
+} tank_graphics;
+
+//Initialize the tank memory
+void tank_init();
+//update the current tank position
+void tank_updatePosition(bool left);
+//get the current tank position
+uint16_t tank_getPosition();
+//get the previous tank position
+uint16_t tank_getPreviousPosition();
+
+
+
+#endif /* ALIENS_H_ */

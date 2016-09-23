@@ -1,0 +1,18 @@
+/*
+ * graphics.h
+ *
+ *	Contains functions to draw graphics to the screen
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#ifndef GRAPHICS_H_
+#define GRAPHICS_H_
+
+#define GRAPHICS_FRAME_BUFFER_0_ADDR 0xC0000000  // Starting location in DDR where we will store the images that we display.
+#define GRAPHICS_SCREEN_WIDTH		640		//Screen width in pixels
+#define GRAPHICS_SCREEN_HEIGHT		480		//Screen height in pixels
+#define GRAPHICS_BYTES_PER_PIXEL	4		//Each pixel is 4 bytes
+
+#endif /* GRAPHICS_H_ */

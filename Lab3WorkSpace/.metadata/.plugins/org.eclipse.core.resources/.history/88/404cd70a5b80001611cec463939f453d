@@ -1,0 +1,36 @@
+/*
+ * graphics.h
+ *
+ *	Contains functions to draw graphics to the screen
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#ifndef GRAPHICS_H_
+#define GRAPHICS_H_
+
+#include "sprite.h"		//For sprite_data_t struct
+
+/////////INIT FUNCTIONS/////////////
+
+//Initializes graphics
+void graphics_init();
+
+//Clears the screen to black
+void graphics_clear_screen();
+
+//Draws a sprite to the screen
+void graphics_drawSprite(sprite_data_t sprite, uint16_t x, uint16_t y, uint32_t color);
+
+///////////UPDATE OBJECT STATES/////////////
+
+//Update the tank's position
+void graphics_updateTank();
+
+//Update the aliens' coordinates
+void graphics_updateAlienCoordinates(uint16_t x, uint16_t y);
+
+///////////TICK FUNCTION////////////
+
+#endif /* GRAPHICS_H_ */

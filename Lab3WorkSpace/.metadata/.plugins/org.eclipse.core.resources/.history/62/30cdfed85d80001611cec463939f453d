@@ -1,0 +1,62 @@
+/*
+ * main.c
+ *
+ * Runs our main program
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#include "platform.h"
+#include "graphics.h"	//For graphics
+#include "sprite.h"		//For testing sprites
+#include "controllers/tank.h"		//For testing tanks
+#include "controllers/aliens.h"		//For testing aliens
+#include <stdbool.h>	//for booleans
+
+int main()
+{
+	init_platform();        	// Necessary for all programs.
+	graphics_init();			//Initialize graphics
+	graphics_clear_screen();	//Clear the screen
+
+	tank_init();
+
+	volatile int j;
+
+	bool left = true;
+
+	while(1)
+	{
+		int i;
+		for(i = 0; i < 30; i++)
+		{
+			if((i % 5) == 0)
+			{
+				aliens_updatePosition();
+				graphics_updateAliens();
+			}
+			tank_updatePosition(left);
+			graphics_updateTank();
+			for(j = 0; j < 500000; j++);
+		}
+		left = !left;
+	}
+
+
+	sprite_data_t alien = sprite_getAlienMiddleOut();
+	graphics_drawSprite(alien, 100, 200, 0x00FFFFFF);
+
+	sprite_data_t tiletop = sprite_getBunkerDamage3();
+	graphics_drawSprite(tiletop, 0, 0, 0x00FFFFFF);
+
+	sprite_data_t tilebot = sprite_getBunkerDamage3();
+	graphics_drawSprite(tilebot, 314, 234, 0x00FF00FF);
+
+
+
+
+
+
+	return 0;	//Because there's a warning otherwise
+}

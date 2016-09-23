@@ -1,0 +1,47 @@
+/*
+ * tank.c
+ *
+ *  Created on: Sep 21, 2016
+ *      Author: superman
+ */
+
+#include "tank.h"
+
+static tank_graphics tank_curr;	//Current tank position
+static tank_graphics tank_prev;	//Previous tank position (for erasing graphics)
+
+#define START_POSITION 153	//Start tank in middle of screen
+#define MOVEMENT_OFFSET 5	//Move tank by this much when it is moved
+
+//Initialize the tank memory
+void tank_init()
+{
+	//Set both variables to starting position
+	tank_curr.x = START_POSITION;
+	tank_prev.x = START_POSITION;
+}
+
+//update the current tank position
+void tank_updatePosition(bool left)
+{
+	tank_prev.x = tank_curr.x;	//Update previous value
+	if(left)	//Check if tank moved left
+	{
+		tank_curr.x = tank_curr.x - MOVEMENT_OFFSET;	//Move tank left
+	}
+	else
+	{
+		tank_curr.x = tank_curr.x + MOVEMENT_OFFSET;	//Move tank right
+	}
+
+}
+//get the current tank position
+uint16_t tank_getPosition()
+{
+	return tank_curr.x;
+}
+//get the previous tank position
+uint16_t tank_getPreviousPosition()
+{
+	return tank_prev.x;
+}

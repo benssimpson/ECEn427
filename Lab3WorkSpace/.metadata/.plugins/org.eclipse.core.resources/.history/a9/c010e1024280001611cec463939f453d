@@ -1,0 +1,19 @@
+/*
+ * graphics.h
+ *
+ *	Contains functions to draw graphics to the screen
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#ifndef GRAPHICS_H_
+#define GRAPHICS_H_
+
+//Initializes graphics
+void graphics_init();
+
+//Clears the screen to black
+void graphics_clear_screen();
+
+#endif /* GRAPHICS_H_ */

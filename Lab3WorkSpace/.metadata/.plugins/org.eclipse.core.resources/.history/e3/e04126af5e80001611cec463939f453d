@@ -1,0 +1,218 @@
+/*
+ * graphics.c
+ *
+ *	Implement graphics.h
+ *
+ *  Created on: Sep 20, 2016
+ *      Author: superman
+ */
+
+#include "graphics.h"
+#include <stdio.h>		//For output messages
+#include "platform.h"
+#include "xparameters.h"	//For device parameters
+#include "xaxivdma.h"
+#include "xio.h"
+#include <stdint.h>		//For integer types
+#include "controllers/tank.h"		//For tank
+#include "controllers/aliens.h"		//For aliens
+
+//DEFINES
+
+//Video memory location
+#define FRAME_BUFFER_0_ADDR 0xC0000000  // Starting location in DDR where we will store the images that we display.
+
+//Screen parameters
+#define SCREEN_WIDTH		640		//Screen width in pixels
+#define SCREEN_HEIGHT		480		//Screen height in pixels
+#define BYTES_PER_PIXEL		4		//Each pixel is 4 bytes
+#define	PIXEL_BLOWUP		2		//Factor by which pixels will be blown up for display (It is 2 because we are converting 320x240 to 640x480)
+
+//Colors
+#define BLACK	0x00000000			//The color black
+#define GREEN	0x0000FF00			//The color green
+#define WHITE	0x00FFFFFF			//The color white
+
+//Constant location values
+#define TANK_Y 	220					//The Y coordinate for the tank
+
+//STATIC VARIABLES
+static XAxiVdma_DmaSetup graphics_FrameBuffer;	//Frame buffer handle
+static unsigned int * graphics_framePointer = (unsigned int *) FRAME_BUFFER_0_ADDR;	//Pointer to memory for frame
+
+//Initializes graphics.  Most of this code is copied from the vdmaTest.c file provided for the project.
+void graphics_init()
+{
+	int Status;                        // Keep track of success/failure of system function calls.
+	XAxiVdma videoDMAController;
+	// There are 3 steps to initializing the vdma driver and IP.
+	// Step 1: lookup the memory structure that is used to access the vdma driver.
+	XAxiVdma_Config * VideoDMAConfig = XAxiVdma_LookupConfig(XPAR_AXI_VDMA_0_DEVICE_ID);
+	// Step 2: Initialize the memory structure and the hardware.
+	if(XST_FAILURE == XAxiVdma_CfgInitialize(&videoDMAController, VideoDMAConfig,	XPAR_AXI_VDMA_0_BASEADDR)) {
+		xil_printf("VideoDMA Did not initialize.\r\n");
+	}
+	// Step 3: (optional) set the frame store number.
+	if(XST_FAILURE ==  XAxiVdma_SetFrmStore(&videoDMAController, 2, XAXIVDMA_READ)) {
+		xil_printf("Set Frame Store Failed.");
+	}
+	// Initialization is complete at this point.
+	// Setup the frame counter. We want two read frames. We don't need any write frames but the
+	// function generates an error if you set the write frame count to 0. We set it to 2
+	// but ignore it because we don't need a write channel at all.
+	XAxiVdma_FrameCounter myFrameConfig;
+	myFrameConfig.ReadFrameCount = 2;
+	myFrameConfig.ReadDelayTimerCount = 10;
+	myFrameConfig.WriteFrameCount =2;
+	myFrameConfig.WriteDelayTimerCount = 10;
+	Status = XAxiVdma_SetFrameCounter(&videoDMAController, &myFrameConfig);
+	if (Status != XST_SUCCESS) {
+	   xil_printf("Set frame counter failed %d\r\n", Status);
+	   if(Status == XST_VDMA_MISMATCH_ERROR)
+		   xil_printf("DMA Mismatch Error\r\n");
+	}
+	// Now we tell the driver about the geometry of our frame buffer and a few other things.
+	// Our image is 480 x 640.
+
+	graphics_FrameBuffer.VertSizeInput = SCREEN_HEIGHT;    // 480 vertical pixels.
+	graphics_FrameBuffer.HoriSizeInput = SCREEN_WIDTH*BYTES_PER_PIXEL;  // 640 horizontal (32-bit pixels).
+	graphics_FrameBuffer.Stride = SCREEN_WIDTH*BYTES_PER_PIXEL;         // Dont' worry about the rest of the values.
+	graphics_FrameBuffer.FrameDelay = 0;
+	graphics_FrameBuffer.EnableCircularBuf=1;
+	graphics_FrameBuffer.EnableSync = 0;
+	graphics_FrameBuffer.PointNum = 0;
+	graphics_FrameBuffer.EnableFrameCounter = 0;
+	graphics_FrameBuffer.FixedFrameStoreAddr = 0;
+	if(XST_FAILURE == XAxiVdma_DmaConfig(&videoDMAController, XAXIVDMA_READ, &graphics_FrameBuffer)) {
+		xil_printf("DMA Config Failed\r\n");
+	 }
+	// We need to give the frame buffer pointers to the memory that it will use. This memory
+	// is where you will write your video data. The vdma IP/driver then streams it to the HDMI
+	// IP.
+	 graphics_FrameBuffer.FrameStoreStartAddr[0] = FRAME_BUFFER_0_ADDR;
+	 graphics_FrameBuffer.FrameStoreStartAddr[1] = FRAME_BUFFER_0_ADDR + 4*640*480;
+
+	 if(XST_FAILURE == XAxiVdma_DmaSetBufferAddr(&videoDMAController, XAXIVDMA_READ,
+						   graphics_FrameBuffer.FrameStoreStartAddr)) {
+		 xil_printf("DMA Set Address Failed Failed\r\n");
+	 }
+	 // Print a sanity message if you get this far.
+	 xil_printf("Woohoo! I made it through initialization.\n\r");
+
+	 // This tells the HDMI controller the resolution of your display (there must be a better way to do this).
+	  XIo_Out32(XPAR_AXI_HDMI_0_BASEADDR, 640*480);
+
+	  // Start the DMA for the read channel only.
+	  if(XST_FAILURE == XAxiVdma_DmaStart(&videoDMAController, XAXIVDMA_READ)){
+		 xil_printf("DMA START FAILED\r\n");
+	  }
+	  int frameIndex = 0;
+	  // We have two frames, let's park on frame 0. Use frameIndex to index them.
+	  // Note that you have to start the DMA process before parking on a frame.
+	  if (XST_FAILURE == XAxiVdma_StartParking(&videoDMAController, frameIndex,  XAXIVDMA_READ)) {
+		 xil_printf("vdma parking failed\n\r");
+	  }
+}
+
+//Draws an entire block of aliens
+//@param guise_in		true if aliens are "in," false if they are "out."
+void drawAlienBlock(bool guise_in)
+{
+	sprite_data_t sprite;	//Pointer to current sprite
+	uint16_t prevX, prevY, currX, currY;	//Position variables
+	prevX = aliens_getXPreviousPosition();	//get previous X position
+	currX = aliens_getXPosition();			//get current X position
+	prevY = aliens_getYPreviousPosition();	//get previous Y position
+	currY = aliens_getYPosition();			//get current Y position
+	xil_printf("x: %d, y: %d, pX: %d, pY: %d\r\n",currX,currY,prevX,prevY);
+	uint16_t row, col;		//Looping variables
+	for(row = 0; row < ALIENS_ROWS; row++) //Loop through alien rows
+	{
+		//Get sprite for aliens in current row
+		if(row == ALIENS_TOP_ROW)	//Top aliens
+			//Choose correct guise
+			sprite = guise_in ? sprite_getAlienTopIn() : sprite_getAlienTopOut();
+		else if(row < ALIENS_BOTTOM_ROW)
+			//Choose correct guise
+			sprite = guise_in ? sprite_getAlienMiddleIn() : sprite_getAlienMiddleOut();
+		else
+			//Choose correct guise
+			sprite = guise_in ? sprite_getAlienBottomIn() : sprite_getAlienBottomOut();
+		for(col = 0; col < ALIENS_COLS; col++) //Loop through alien columns
+		{
+			if(aliens_getStatus(row*ALIENS_ROWS + col))	//Check if alien is alive
+			{
+				//Erase old alien
+				graphics_drawSprite(sprite, prevX + col*ALIEN_CELL_WIDTH, prevY + row*ALIEN_CELL_HEIGHT, BLACK);
+				//Draw new alien
+				graphics_drawSprite(sprite, currX + col*ALIEN_CELL_WIDTH, currY + row*ALIEN_CELL_HEIGHT, WHITE);
+			}
+		}
+	}
+}
+
+//Update the alien block
+void graphics_updateAliens()
+{
+	//Dummy code for now
+	static bool guise = true;
+	drawAlienBlock(guise);
+	guise = !guise;
+}
+
+//Update the tank's position
+void graphics_updateTank()
+{
+	//get the tank's previous location
+	uint16_t prev_tank_pos = tank_getPreviousPosition();
+	//get the tank's current location
+	uint16_t curr_tank_pos = tank_getPosition();
+	xil_printf("Curr pos: %d, prev pos: %d\r\n", curr_tank_pos, prev_tank_pos);
+	sprite_data_t tankSpriteData = sprite_getTank();
+	//clear the previous tank position
+	//maybe optimize this
+	graphics_drawSprite(tankSpriteData, prev_tank_pos, TANK_Y, BLACK);
+	//draw the new tank position
+	//maybe optimize this
+	graphics_drawSprite(tankSpriteData, curr_tank_pos, TANK_Y, GREEN);
+
+}
+
+/*
+ * Draws a sprite to the screen
+ * @param	sprite		sprite data
+ * @param	x			x-coordinate (320x240 coordinates)
+ * @param	y			y-ccordinate (320x240 coordinates)
+ * @param	color		Color to draw sprite
+ */
+void graphics_drawSprite(sprite_data_t sprite, uint16_t x, uint16_t y, uint32_t color)
+{
+	uint16_t row, col;		//Looping variables for unpacking sprite data
+	uint32_t coord640;	//Index of starting coordinate (x,y) in 640x480 coordinates
+	coord640 = y*PIXEL_BLOWUP*SCREEN_WIDTH + x*PIXEL_BLOWUP;	//Convert 320x240 position coordinates to 640x480 starting index
+	for(row = 0; row < sprite.height; row++)	//Loop over rows in sprite
+	{
+		for(col = 0; col < sprite.width; col++)	//Loop over columns in sprite
+		{
+			if(sprite.sprite_data[row] & (0x1 << col))	//Check if current pixel is supposed to be colored in
+			{
+				//Color in 4 640x480 pixels for each 320x240 pixel
+				graphics_framePointer[coord640] = color;	//Top left
+				graphics_framePointer[coord640+1] = color;	//Top right
+				graphics_framePointer[coord640+SCREEN_WIDTH] = color;	//Bottom left
+				graphics_framePointer[coord640+SCREEN_WIDTH+1] = color;	//Bottom right
+			}
+			coord640 += PIXEL_BLOWUP;	//Move to next 320x240 pixel
+		}
+		coord640 -= sprite.width*PIXEL_BLOWUP;	//Move index back to first column
+		coord640 += SCREEN_WIDTH*PIXEL_BLOWUP;	//Move to next 320x240 row
+	}
+}
+
+//Clears the screen to black
+void graphics_clear_screen()
+{
+	uint32_t i;	//looping variable
+	for(i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; i++)	//Loop through all pixels on the screen
+		graphics_framePointer[i] = BLACK;	//Set color to black
+}

@@ -1,0 +1,33 @@
+/*
+ * aliens.h
+ *
+ *  Created on: Sep 21, 2016
+ *      Author: superman
+ */
+
+#ifndef ALIENS_H_
+#define ALIENS_H_
+
+
+
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef struct
+{
+	uint16_t x;
+	uint16_t y;
+} alien_graphics;
+
+//Initialize the memory
+void aliens_init();
+//update the current position
+void alien_updatePosition();
+//get the current position
+uint16_t alien_getPosition();
+//get the previous position
+uint16_t alien_getPreviousPosition();
+
+
+
+#endif /* ALIENS_H_ */
